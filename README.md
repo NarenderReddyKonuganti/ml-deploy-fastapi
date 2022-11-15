@@ -4,266 +4,100 @@ FastAPI is a modern, fast (high-performance), web framework for building APIs wi
 
 ## Implementation
 
-Objective is to create an API endpoint on "sentiment classification model", which aims to predict if a given text message is spam or ham.
-
-# GPU-Jupyter
-#### Leverage Jupyter Notebooks with the power of your NVIDIA GPU and perform GPU calculations using Tensorflow and Pytorch in collaborative notebooks. 
-
-![Jupyterlab Overview](/Architecture.png)
-
-First of all, thanks to [docker-stacks](https://github.com/jupyter/docker-stacks) 
-for creating and maintaining a robost  Python, R and Julia toolstack for Data Analytics/Science 
-applications. This project uses the NVIDIA CUDA image as the base image and installs their 
-toolstack on top of it to enable GPU calculations in the Jupyter notebooks. 
-The image of this repository is available on [Dockerhub](https://hub.docker.com/r/cschranz/gpu-jupyter).
+Objective is to create an API endpoint for "sentiment classification model", which aims to predict if a given text message is spam or ham.
 
 ## Contents
 
 1. [Requirements](#requirements)
 2. [Quickstart](#quickstart)
-3. [Tracing](#tracing)
-4. [Deployment](#deployment-in-the-docker-swarm)
-5. [Configuration](#configuration)
-6. [Issues and Contributing](#issues-and-contributing)
+
 
 
 ## Requirements
 
-1.  A NVIDIA GPU
-2.  Install [Docker](https://www.docker.com/community-edition#/download) version **1.10.0+**
- and [Docker Compose](https://docs.docker.com/compose/install/) version **1.6.0+**.
-3.  Get access to your GPU via CUDA drivers within Docker containers. Therfore, check out this 
-[medium article](https://medium.com/@christoph.schranz/set-up-your-own-gpu-based-jupyterlab-e0d45fcacf43).
-    The CUDA toolkit is not required on the host system, as it will be deployed 
-    in [NVIDIA-docker](https://github.com/NVIDIA/nvidia-docker). 
-    You can be sure that you can access your GPU within Docker, 
-    if the command `docker run --runtime nvidia nvidia/cuda:10.1-base-ubuntu18.04 nvidia-smi`
-    returns a result similar to this one:
-    ```bash
-    Mon Jun 22 09:06:28 2020       
-    +-----------------------------------------------------------------------------+
-    | NVIDIA-SMI 440.82       Driver Version: 440.82       CUDA Version: 10.1     |
-    |-------------------------------+----------------------+----------------------+
-    | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-    | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-    |===============================+======================+======================|
-    |   0  GeForce RTX 207...  Off  | 00000000:01:00.0  On |                  N/A |
-    |  0%   46C    P8     9W / 215W |    424MiB /  7974MiB |      6%      Default |
-    +-------------------------------+----------------------+----------------------+
-                                                                                   
-    +-----------------------------------------------------------------------------+
-    | Processes:                                                       GPU Memory |
-    |  GPU       PID   Type   Process name                             Usage      |
-    |=============================================================================|
-    +-----------------------------------------------------------------------------+
-    ```
-4. Clone the Repository or pull the image from 
-    [Dockerhub](https://hub.docker.com/repository/docker/cschranz/gpu-jupyter):
-    ```bash
-    git clone https://github.com/iot-salzburg/gpu-jupyter.git
-    cd gpu-jupyter
-    ```
+1. Install required packages (fastapi, uvicorn etc..,)
+
+   pip install -r requirements.txt 
+   
+2.  Install [Docker](https://www.docker.com/community-edition#/download)
+ and [Docker Compose](https://docs.docker.com/compose/install/)
+
 
 ## Quickstart
 
-First of all, it is necessary to generate the `Dockerfile` based on the
-[docker-stacks](https://github.com/jupyter/docker-stacks).
-As soon as you have access to your GPU within Docker containers 
-(make sure the command `docker run --runtime nvidia nvidia/cuda:10.1-base-ubuntu18.04 nvidia-smi` shows your
-GPU statistics), you can generate a Dockerfile and build it via docker-compose.
-The two commands will start *GPU-Jupyter* on [localhost:8848](http://localhost:8848) with the default 
-password `asdf`.
+**Step 1: Building the API**
 
-  ```bash
-  ./generate-Dockerfile.sh
-  ./start-local.sh -p 8848  # where -p stands for the port, default 8888
-  ``` 
+* Client sends a request to the uvicorn server which interacts with the API to trigger the prediction model.
+* The model returns the polarity (spam or ham), and the result is shown to the user in a JSON format.
 
-## Parameter
+**Step 2: Deploying into Docker**
 
-The script `generate-Dockerfile.sh` has multiple parameters:
-
-* `-c|--commit`: specify a commit or `"latest"` for the `docker-stacks`, the default commit is a working one.
-
-* `-s|--slim`: Generate a slim Dockerfile. 
-As some installations are not needed by everyone, there is the possibility to skip some installations 
-to reduce the size of the image.
-Here the `docker-stack` `scipy-notebook` is used instead of `datascience-notebook` that comes with Julia and R. 
-Moreover, none of the packages within `src/Dockerfile.usefulpackages` is installed.
-
-* `--no-datascience-notebook`: As the name suggests, the `docker-stack` `datascience-notebook` is not installed
-on top of the `scipy-notebook`, but the packages within `src/Dockerfile.usefulpackages` are.
-
-* `--no-useful-packages`: On top of the `docker-stack` `datascience-notebook`, the essential `gpulibs` are installed
-but not the packages within `src/Dockerfile.usefulpackages`.
+* After creating the API, we will create a Docker Image in which the app will the running.
 
 
-The script `start-local.sh` is a wrapper for a quick configuration of the underlying `docker-compose.yml`.
-It is equal to these commands:
+## About files
 
-  ```bash
-  docker build -t gpu-jupyter .build/
-  docker run -d -p [port]:8888 gpu-jupyter
-  ```
-
-## Tracing
-  
-With these commands we can see if everything worked well:
-```bash
-docker ps
-docker logs [service-name]
-```
-
-In order to stop the local deployment, run:
-
-  ```bash
-  ./stop-local.sh
-  ```
- 
- 
- ## Deployment in the Docker Swarm
- 
-A Jupyter instance often requires data from other services. 
-If that data-source is containerized in Docker and sharing a port for communication shouldn't be allowed, e.g., for security reasons,
-then connecting the data-source with *GPU-Jupyter* within a Docker Swarm is a great option! 
-
-### Set up Docker Swarm and Registry
-
-This step requires a running [Docker Swarm](https://www.youtube.com/watch?v=x843GyFRIIY) on a cluster or at least on this node.
-In order to register custom images in a local Docker Swarm cluster, 
-a registry instance must be deployed in advance.
-Note that the we are using the port 5001, as many services use the default port 5000.
-
-```bash
-sudo docker service create --name registry --publish published=5001,target=5000 registry:2
-curl 127.0.0.1:5001/v2/
-```
-This should output `{}`. \
-
-Afterwards, check if the registry service is available using `docker service ls`.
+**app.py** containing all the instructions on the server-side
+**docker** containing the Dockerfile to create the container.
 
 
-### Configure the shared Docker network
+# Steps to Build the API
 
-Additionally, *GPU-Jupyter* is connected to the data-source via the same *docker-network*. Therefore, This network must be set to **attachable** in the source's `docker-compose.yml`:
+1. The API implementation in the python fileapp.py is split into the following three main sections.
 
-```yml
-services:
-  data-source-service:
-  ...
-      networks:
-      - default
-      - datastack
-  ...
-networks:
-  datastack:
-    driver: overlay
-    attachable: true  
-```
- In this example, 
- * the docker stack was deployed in Docker swarm with the name **elk** (`docker stack deploy ... elk`),
- * the docker network has the name **datastack** within the `docker-compose.yml` file,
- * this network is configured to be attachable in the `docker-compose.yml` file
- * and the docker network has the name **elk_datastack**, see the following output:
-    ```bash
-    sudo docker network ls
-    # ...
-    # [UID]        elk_datastack                   overlay             swarm
-    # ...
-    ```
-  The docker network name **elk_datastack** is used in the next step as a parameter.
-   
-### Start GPU-Jupyter in Docker Swarm
+2. Import all the libraries required for the API (lines 2 to 3). The step before that is to install those libraries, which can be done by running the pip install -r requirements.txt command.
 
-Finally, *GPU-Jupyter* can be deployed in the Docker Swarm with the shared network, using:
+ Load the serialized model and the vectors (lines 6 and 9) and instantiate the Fast API (line 12)
 
-```bash
-./generate-Dockerfile.sh
-./add-to-swarm.sh -p [port] -n [docker-network] -r [registry-port]
-# e.g. ./add-to-swarm.sh -p 8848 -n elk_datastack -r 5001
-```
-where:
-* **-p:** port specifies the port on which the service will be available.
-* **-n:** docker-network is the name of the attachable network from the previous step, e.g., here it is **elk_datastack**.
-* **-r:** registry port is the port that is published by the registry service, see [Set up Docker Swarm and Registry](set-up-docker-swarm-and-registry).
+3. Define the endpoints of the API. In our case, it will have two routes as shown below.
 
-Now, *gpu-jupyter* will be accessable here on [localhost:8848](http://localhost:8848) with the default password `asdf` and shares the network with the other data-source, i.e., all ports of the data-source will be accessable within *GPU-Jupyter*, even if they aren't routed it the source's `docker-compose` file.
+**default route "/”:** which simply returns the following JSON format “message”: “Welcome to Your Sentiment Classification FastAPI” through the root() function which does not take a parameter.
 
-Check if everything works well using:
-```bash
-sudo docker service ps gpu_gpu-jupyter
-docker service ps gpu_gpu-jupyter
-```
+**the prediction route "/predict_sentiment":** this one triggers the predict_sentiment() function, which takes as a parameter, the user’s message, and returns the JSON response at the format defined from lines 19 to 22. The sentiment polarity is the prediction of the model.
 
-In order to remove the service from the swarm, use:
-```bash
-./remove-from-swarm.sh
-```
+We can finally run it (the API) with the following instruction from our command line, from the location of the app.y file.
 
-## Configuration
+uvicorn app:app --reload
 
-Please set a new password using `src/jupyter_notebook_config.json`.
-Therefore, hash your password in the form (password)(salt) using a sha1 hash generator, e.g., the sha1 generator of [sha1-online.com](http://www.sha1-online.com/). 
-The input with the default password `asdf` is appended by a arbitrary salt `e49e73b0eb0e` to `asdfe49e73b0eb0e` and should yield the hash string as shown in the config below.
-**Never give away your own unhashed password!**
+* uvicorn starts the unicorn server.
+* app: corresponds to the python fileapp.pyIt is the one on the left of the “:” sign.
+* app: corresponds to the object created inside of app.py with the instruction app = FastAPI(). If the name of the file was main.py the instruction would be uvicorn main:app --reload
+* --reload: an option used to restart the server after any code changes. Keep in mind that this is to be used only when we are in the development stage, not during the deployment stage.
 
-Then update the config file as shown below and restart the service.
+Line 1 shows that the unicorn server is running on the localhost (http://127.0.0.1) port 8000.
 
-```json
-{
-  "NotebookApp": {
-    "password": "sha1:e49e73b0eb0e:32edae7a5fd119045e699a0bd04f90819ca90cd6"
-  }
-}
-```
-
-### Updates
- 
-#### Update CUDA to another version
-
-Please check version compatibilities for [CUDA and Pytorch](https://pytorch.org/get-started/locally/)
- respectively [CUDA and Tensorflow](https://www.tensorflow.org/install/gpu) previously. 
-To update CUDA to another version, change in `Dockerfile.header`
-the line:
-
-    FROM nvidia/cuda:10.1-base-ubuntu18.04
-    
-and in the `Dockerfile.pytorch` the line:
-
-    cudatoolkit=10.1
-
-Then re-generate and re-run the image, as closer described above:
-
-```bash
-./generate-Dockerfile.sh
-./start-local.sh -p 8848
-```
-
-#### Update Docker-Stack
-
-The [docker-stacks](https://github.com/jupyter/docker-stacks) are used as  a
-submodule within `.build/docker-stacks`. Per default, the head of the commit is reset to a commit on which `gpu-jupyter` runs stable. 
-To update the generated Dockerfile to a specific commit, run:
-
-```bash
-./generate-Dockerfile.sh --commit c1c32938438151c7e2a22b5aa338caba2ec01da2
-```
-
-To update the generated Dockerfile to the latest commit, run:
-
-```bash
-./generate-Dockerfile.sh --commit latest
-```
-
-A new build can last some time and may consume a lot of data traffic. Note, that the latest version may result in
-a version conflict!
-More info to submodules can be found in
- [this tutorial](https://www.vogella.com/tutorials/GitSubmodules/article.html).
+Accessing the default route is straightforward. Just type the following URL on our favorite browser.
 
 
-## Issues and Contributing
+The URL http://127.0.0.1:8000/docs provides a complete dashboard for interacting with our API. Below is the result.
 
-This project has the intention to create a robust image for CUDA-based GPU-applications, which is built on top of the [docker-stacks](https://github.com/jupyter/docker-stacks). You are free to help to improve this project, by:
+From the previous Image, when we select the /predict_sentiment in the green box, we get the complete guide to interact with our API as shown below.
 
-* [filing a new issue](https://github.com/iot-salzburg/gpu-jupyter/issues/new)
-* [open a pull request](https://help.github.com/articles/using-pull-requests/)
+Just select the Try it out tab and provide the message you want the prediction for in the text_message zone.
+
+## Deployment into Docker Container
+Our API is ready, now it is time to deploy it into a Docker container. The idea behind containerization is that it will make our API portable and able to run uniformly and consistently across any platform (including the cloud), in a more secured way. Also, using Kubernetes can make the scaling of the API easier. But Kubernetes' part will be for another time.
+
+Below is the content of theDockerfile for our app.
+
+The Dockerfile file contains five main instructions as shown below.
+
+* FROM: pulls an official python image from docker hub, then our files will be built from that image.
+* WORKDIR: create /app as the working directory for the application.
+* COPY: copy file(s) from the source folder to the destination folder.
+* RUN: runs the requirements.txt file in order to install the project dependencies.
+* CMD: create an entry point in order to finally make the image executable.
+
+
+## Build the Docker Image
+
+The following command builds the image called fastapiapp tagged with the latest version. This image is built from the previous docker file.
+
+Running the command creates the image with the following success message
+
+## Run the container
+
+The image is built, all we need now is to run it into a container with the following command.
+
+**After that, you should get a message similar to this one containing the URL to your API.**
+
