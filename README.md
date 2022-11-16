@@ -106,16 +106,16 @@ The image is built, all we need now is to run it into a container with the follo
 
 Now we’ll define a docker-compose that will create a service for our API. I could have just used a Dockerfile only because docker-compose is a tool for defining multi-container applications and we have one container so far.
 
-##### Using Compose is basically a three-step process:
+#### Using Compose is basically a three-step process:
 * Define app's environment with a Dockerfile so it can be reproduced anywhere.
 * Define the services that make up an app in docker-compose.yml so they can be run together in an isolated environment.
 * Run docker-compose up and compose will start and run the entire app.
 
-##### Refer docker-compose.yml file:
+#### Refer docker-compose.yml file:
 
 We give a name to our service (service), we set the path to the Dockerfile for the build step, and we map the port 80(on the container) to the port 80 (on the host).
 
-##### Started Docker Compose
+#### Start Docker Compose using the following command
 
 **docker-compose up**
 
